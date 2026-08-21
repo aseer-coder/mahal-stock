@@ -1,48 +1,18 @@
-import { ScrollView, Text, View, TouchableOpacity } from "react-native";
-
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { router } from "expo-router";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { EmptyState, PrimaryButton, ProductRow, StatCard } from "@/components/pos-ui";
 import { ScreenContainer } from "@/components/screen-container";
+import { useInventory } from "@/lib/inventory/inventory-provider";
 
-/**
- * Home Screen - NativeWind Example
- *
- * This template uses NativeWind (Tailwind CSS for React Native).
- * You can use familiar Tailwind classes directly in className props.
- *
- * Key patterns:
- * - Use `className` instead of `style` for most styling
- * - Theme colors: use tokens directly (bg-background, text-foreground, bg-primary, etc.); no dark: prefix needed
- * - Responsive: standard Tailwind breakpoints work on web
- * - Custom colors defined in tailwind.config.js
- */
 export default function HomeScreen() {
-  return (
-    <ScreenContainer className="p-6">
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
-        <View className="flex-1 gap-8">
-          {/* Hero Section */}
-          <View className="items-center gap-2">
-            <Text className="text-4xl font-bold text-foreground">Welcome</Text>
-            <Text className="text-base text-muted text-center">
-              Edit app/(tabs)/index.tsx to get started
-            </Text>
-          </View>
-
-          {/* Example Card */}
-          <View className="w-full max-w-sm self-center bg-surface rounded-2xl p-6 shadow-sm border border-border">
-            <Text className="text-lg font-semibold text-foreground mb-2">NativeWind Ready</Text>
-            <Text className="text-sm text-muted leading-relaxed">
-              Use Tailwind CSS classes directly in your React Native components.
-            </Text>
-          </View>
-
-          {/* Example Button */}
-          <View className="items-center">
-            <TouchableOpacity className="bg-primary px-6 py-3 rounded-full active:opacity-80">
-              <Text className="text-background font-semibold">Get Started</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
-    </ScreenContainer>
-  );
+  const { isReady, products, sales, settings } = useInventory(); const todayKey = new Date().toISOString().slice(0, 10); const todaySales = sales.filter((sale) => sale.createdAt.slice(0, 10) === todayKey).reduce((total, sale) => total + sale.total, 0); const inventoryValue = products.reduce((total, product) => total + product.quantity * (product.purchasePrice ?? 0), 0); const lowProducts = products.filter((product) => product.quantity > 0 && product.quantity <= settings.lowStockThreshold); const outProducts = products.filter((product) => product.quantity === 0);
+  return <ScreenContainer className="px-4" containerClassName="bg-background"><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <View style={styles.header}><View style={styles.storeMark}><MaterialIcons name="storefront" size={25} color="#FFFFFF" /></View><View style={styles.headerText}><Text style={styles.greeting}>مرحبًا بك</Text><Text style={styles.shopName}>{settings.shopName}</Text></View></View>
+    <PrimaryButton title="مسح باركود للبيع" icon="qr-code-scanner" onPress={() => router.push("/scanner?mode=sale")} />
+    <View style={styles.grid}><StatCard icon="inventory-2" label="إجمالي المنتجات" value={isReady ? String(products.length) : "—"} /><StatCard icon="warning-amber" label="منخفض المخزون" value={isReady ? String(lowProducts.length + outProducts.length) : "—"} tone="warning" /><StatCard icon="payments" label="مبيعات اليوم" value={isReady ? `${todaySales.toFixed(2)} ${settings.currency}` : "—"} tone="success" /><StatCard icon="account-balance-wallet" label="قيمة المخزون" value={isReady ? `${inventoryValue.toFixed(2)} ${settings.currency}` : "—"} /></View>
+    <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>اختصارات سريعة</Text></View><View style={styles.actions}><PrimaryButton title="إضافة منتج" icon="add-box" onPress={() => router.push("/product/new")} outline /><PrimaryButton title="عرض المخزون" icon="warehouse" onPress={() => router.push("/stock")} outline /></View>
+    <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>تنبيه المخزون</Text><Text style={styles.sectionHint}>الأقل من {settings.lowStockThreshold} وحدات</Text></View>{lowProducts.length + outProducts.length === 0 ? <EmptyState icon="verified" title="المخزون في وضع جيد" description="ستظهر المنتجات المنخفضة أو النافدة هنا لتتمكن من متابعتها بسرعة." /> : <View style={styles.productList}>{[...outProducts, ...lowProducts].slice(0, 4).map((product) => <ProductRow key={product.id} product={product} currency={settings.currency} onPress={() => router.push(`/product/${product.id}`)} />)}</View>}
+  </ScrollView></ScreenContainer>;
 }
+const styles = StyleSheet.create({ content: { paddingTop: 14, paddingBottom: 28, gap: 17 }, header: { flexDirection: "row-reverse", alignItems: "center", gap: 11 }, storeMark: { width: 46, height: 46, borderRadius: 15, backgroundColor: "#146C5A", justifyContent: "center", alignItems: "center" }, headerText: { flex: 1, alignItems: "flex-end" }, greeting: { color: "#61726B", fontSize: 13, lineHeight: 18 }, shopName: { color: "#16201D", fontSize: 22, lineHeight: 29, fontWeight: "800" }, grid: { flexDirection: "row-reverse", flexWrap: "wrap", gap: 10 }, sectionHeader: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", marginTop: 3 }, sectionTitle: { color: "#16201D", fontSize: 17, lineHeight: 24, fontWeight: "800" }, sectionHint: { color: "#728078", fontSize: 12, lineHeight: 18 }, actions: { gap: 10 }, productList: { gap: 9 } });

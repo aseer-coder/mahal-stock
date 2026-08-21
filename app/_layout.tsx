@@ -5,9 +5,10 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
-import { Platform } from "react-native";
+import { I18nManager, Platform } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
+import { InventoryProvider } from "@/lib/inventory/inventory-provider";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -21,6 +22,11 @@ import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-run
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
+
+if (Platform.OS !== "web") {
+  I18nManager.allowRTL(true);
+  I18nManager.forceRTL(true);
+}
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -82,6 +88,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
+          <InventoryProvider>
           {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
           {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
           {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
@@ -90,6 +97,7 @@ export default function RootLayout() {
             <Stack.Screen name="oauth/callback" />
           </Stack>
           <StatusBar style="auto" />
+          </InventoryProvider>
         </QueryClientProvider>
       </trpc.Provider>
     </GestureHandlerRootView>

@@ -32,7 +32,7 @@ const env = {
   appSlug: "mahal-stock",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "",
+  logoUrl: "/manus-storage/mahal-stock-icon_fbeaf681.png",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
@@ -63,8 +63,9 @@ const config: ExpoConfig = {
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
+    blockedPermissions: ["android.permission.RECORD_AUDIO"],
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS"],
+    permissions: ["POST_NOTIFICATIONS", "CAMERA"],
     intentFilters: [
       {
         action: "VIEW",
@@ -86,19 +87,22 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    "expo-sqlite",
     [
-      "expo-audio",
+      "expo-camera",
       {
-        microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",
+        "cameraPermission": "السماح لتطبيق إدارة متجر باستخدام الكاميرا لمسح الباركود والتقاط صور المنتجات.",
+        "recordAudioAndroid": false,
       },
     ],
     [
-      "expo-video",
+      "expo-image-picker",
       {
-        supportsBackgroundPlayback: true,
-        supportsPictureInPicture: true,
+        "photosPermission": "السماح لتطبيق إدارة متجر بالوصول إلى صور المنتجات.",
+        "cameraPermission": "السماح لتطبيق إدارة متجر بالتقاط صور المنتجات.",
       },
     ],
+    "expo-document-picker",
     [
       "expo-splash-screen",
       {
@@ -122,7 +126,7 @@ const config: ExpoConfig = {
     ],
   ],
   experiments: {
-    typedRoutes: true,
+    typedRoutes: false,
     reactCompiler: true,
   },
 };
