@@ -3,7 +3,7 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "ex
 import { useIsFocused } from "@react-navigation/native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { MAX_CART_PRODUCTS } from "@/lib/inventory/commerce";
 import { useInventory, useSaleCart } from "@/lib/inventory/inventory-provider";
@@ -11,18 +11,93 @@ import { useInventory, useSaleCart } from "@/lib/inventory/inventory-provider";
 type ScannerMode = "sale" | "products" | "stock" | "product";
 
 export default function ScannerScreen() {
-  const { mode: rawMode = "sale" } = useLocalSearchParams<{ mode?: ScannerMode }>(); const mode = rawMode as ScannerMode; const [permission, requestPermission] = useCameraPermissions(); const isFocused = useIsFocused(); const { products } = useInventory(); const { cart, itemCount, addProductToCart } = useSaleCart(); const [scanLocked, setScanLocked] = useState(false); const [cameraKey, setCameraKey] = useState(0); const [cameraError, setCameraError] = useState<string | null>(null); const [isCameraReady, setIsCameraReady] = useState(false); const [scanMessage, setScanMessage] = useState(mode === "sale" ? "المسح يضيف المنتج إلى السلة تلقائيًا" : "وجّه الكاميرا إلى الباركود"); const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { mode: rawMode = "sale" } = useLocalSearchParams<{ mode?: ScannerMode }>();
+  const mode = rawMode as ScannerMode;
+  const [permission, requestPermission] = useCameraPermissions();
+  const isFocused = useIsFocused();
+  const { products } = useInventory();
+  const { addProductToCart } = useSaleCart();
+  const [scanLocked, setScanLocked] = useState(false);
+  const [cameraKey, setCameraKey] = useState(0);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [scanMessage, setScanMessage] = useState(mode === "sale" ? "سيتم التقاط منتج واحد ثم إغلاق الكاميرا" : "وجّه الكاميرا إلى الباركود");
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scanInProgressRef = useRef(false);
+
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
-  useEffect(() => { if (isFocused) { setScanLocked(false); setCameraError(null); setIsCameraReady(false); setCameraKey((value) => value + 1); setScanMessage(mode === "sale" ? "المسح يضيف المنتج إلى السلة تلقائيًا" : "وجّه الكاميرا إلى الباركود"); } }, [isFocused, mode, permission?.granted]);
-  const unlockScanner = useCallback((delay = 850) => { if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = setTimeout(() => setScanLocked(false), delay); }, []);
-  const requestCamera = useCallback(async () => { const result = await requestPermission(); if (result.granted) { setCameraError(null); setScanLocked(false); setCameraKey((value) => value + 1); } }, [requestPermission]);
-  const handleScan = ({ data }: BarcodeScanningResult) => { if (scanLocked) return; setScanLocked(true); const product = products.find((item) => item.barcode === data); if (mode === "sale") { if (!product) { setScanMessage("الباركود غير مسجل — أضف المنتج من قسم المنتجات"); unlockScanner(1350); return; } const update = addProductToCart(product.id); if (update.reason === "capacity") setScanMessage(`بلغت السلة الحد الأقصى: ${MAX_CART_PRODUCTS} أصناف`); else if (update.reason === "unavailable") setScanMessage(`«${product.name}» غير متوفر في المخزون`); else setScanMessage(`تمت إضافة «${product.name}» إلى السلة — ${itemCount + 1} وحدة`); unlockScanner(); return; } if (product) { router.replace({ pathname: "/product/[id]", params: { id: product.id, focusQuantity: mode === "stock" ? "1" : "0" } } as never); return; } if (mode === "products" || mode === "product") { router.replace({ pathname: "/product/[id]", params: { id: "new", barcode: data } } as never); return; } setScanMessage("المنتج غير مسجل. أضفه من قسم المنتجات أولًا."); unlockScanner(1350); };
+  useEffect(() => {
+    if (isFocused) {
+      scanInProgressRef.current = false;
+      setScanLocked(false);
+      setCameraError(null);
+      setIsCameraReady(false);
+      setCameraKey((value) => value + 1);
+      setScanMessage(mode === "sale" ? "سيتم التقاط منتج واحد ثم إغلاق الكاميرا" : "وجّه الكاميرا إلى الباركود");
+    }
+  }, [isFocused, mode, permission?.granted]);
+
+  const unlockScanner = useCallback((delay = 850) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      scanInProgressRef.current = false;
+      setScanLocked(false);
+    }, delay);
+  }, []);
+
+  const requestCamera = useCallback(async () => {
+    const result = await requestPermission();
+    if (result.granted) {
+      scanInProgressRef.current = false;
+      setCameraError(null);
+      setScanLocked(false);
+      setCameraKey((value) => value + 1);
+    }
+  }, [requestPermission]);
+
+  const handleScan = ({ data }: BarcodeScanningResult) => {
+    if (scanLocked || scanInProgressRef.current) return;
+    scanInProgressRef.current = true;
+    setScanLocked(true);
+    const product = products.find((item) => item.barcode === data);
+
+    if (mode === "sale") {
+      if (!product) {
+        Alert.alert("الباركود غير مسجل", "لم تتم إضافة أي منتج. أضف المنتج من قسم المنتجات أولًا.");
+      } else {
+        const update = addProductToCart(product.id);
+        if (update.reason === "capacity") {
+          Alert.alert("السلة ممتلئة", `يمكن للسلة استيعاب ${MAX_CART_PRODUCTS} صنفًا مختلفًا فقط.`);
+        } else if (update.reason === "unavailable") {
+          Alert.alert("المنتج غير متوفر", `«${product.name}» لا تتوفر منه كمية للبيع.`);
+        } else {
+          Alert.alert("تمت إضافة المنتج", `تمت إضافة «${product.name}» إلى سلة البيع مرة واحدة.`);
+        }
+      }
+      router.replace("/(tabs)/sale" as never);
+      return;
+    }
+
+    if (product) {
+      router.replace({ pathname: "/product/[id]", params: { id: product.id, focusQuantity: mode === "stock" ? "1" : "0" } } as never);
+      return;
+    }
+
+    if (mode === "products" || mode === "product") {
+      router.replace({ pathname: "/product/[id]", params: { id: "new", barcode: data } } as never);
+      return;
+    }
+
+    setScanMessage("المنتج غير مسجل. أضفه من قسم المنتجات أولًا.");
+    unlockScanner(1350);
+  };
+
   const title = mode === "sale" ? "مسح للبيع" : mode === "stock" ? "مسح للمخزون" : "مسح المنتجات";
   if (!permission) return <View style={styles.fallback}><Text style={styles.fallbackText}>جارٍ تجهيز الكاميرا...</Text></View>;
   if (!permission.granted) return <View style={styles.fallback}><MaterialIcons name="photo-camera" size={45} color="#146C5A" /><Text style={styles.permissionTitle}>نحتاج إذن الكاميرا</Text><Text style={styles.permissionText}>يُستخدم الإذن لمسح الباركود بسرعة وإضافة صور المنتجات.</Text><Pressable onPress={() => { void requestCamera(); }} style={({ pressed }) => [styles.permissionButton, pressed && styles.pressed]}><Text style={styles.permissionButtonText}>السماح بالكاميرا</Text></Pressable><Pressable onPress={() => router.back()}><Text style={styles.cancelText}>رجوع</Text></Pressable></View>;
   if (cameraError) return <View style={styles.fallback}><MaterialIcons name="error-outline" size={45} color="#C43D4B" /><Text style={styles.permissionTitle}>تعذر تشغيل الكاميرا</Text><Text style={styles.permissionText}>{cameraError}</Text><Pressable onPress={() => { setCameraError(null); setCameraKey((value) => value + 1); }} style={({ pressed }) => [styles.permissionButton, pressed && styles.pressed]}><Text style={styles.permissionButtonText}>إعادة المحاولة</Text></Pressable><Pressable onPress={() => router.back()}><Text style={styles.cancelText}>رجوع</Text></Pressable></View>;
-  return <View style={styles.container}>{isFocused ? <CameraView key={cameraKey} style={StyleSheet.absoluteFill} facing="back" onCameraReady={() => setIsCameraReady(true)} onMountError={(event) => setCameraError(event.message || "تعذر الوصول إلى كاميرا الجهاز.")} barcodeScannerSettings={{ barcodeTypes: ["ean13", "ean8", "upc_a", "upc_e", "code128", "code39", "qr"] }} onBarcodeScanned={scanLocked || !isCameraReady ? undefined : handleScan} /> : null}<View style={styles.overlay}><View style={styles.top}><Pressable onPress={() => router.back()} style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}><MaterialIcons name="close" size={26} color="#FFFFFF" /></Pressable><View><Text style={styles.title}>{title}</Text><Text style={styles.subtitle}>{isCameraReady ? scanMessage : "جارٍ تشغيل الكاميرا..."}</Text></View></View><View style={styles.scanArea}><View style={styles.cornerTopRight} /><View style={styles.cornerTopLeft} /><View style={styles.cornerBottomRight} /><View style={styles.cornerBottomLeft} /><View style={styles.scanLine} /></View>{mode === "sale" ? <View style={styles.cartPill}><MaterialIcons name="shopping-cart" size={18} color="#FFFFFF" /><Text style={styles.cartPillText}>{cart.length} أصناف • {itemCount} وحدة</Text></View> : null}<Text style={styles.help}>{mode === "sale" ? "استمر في مسح المنتجات، وستبقى الكاميرا مفتوحة." : "سيظهر المنتج المسجل مباشرة بعد قراءة الرمز."}</Text></View></View>;
+  return <View style={styles.container}>{isFocused ? <CameraView key={cameraKey} style={StyleSheet.absoluteFill} facing="back" onCameraReady={() => setIsCameraReady(true)} onMountError={(event) => setCameraError(event.message || "تعذر الوصول إلى كاميرا الجهاز.")} barcodeScannerSettings={{ barcodeTypes: ["ean13", "ean8", "upc_a", "upc_e", "code128", "code39", "qr"] }} onBarcodeScanned={scanLocked || !isCameraReady ? undefined : handleScan} /> : null}<View style={styles.overlay}><View style={styles.top}><Pressable onPress={() => router.back()} style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}><MaterialIcons name="close" size={26} color="#FFFFFF" /></Pressable><View><Text style={styles.title}>{title}</Text><Text style={styles.subtitle}>{isCameraReady ? scanMessage : "جارٍ تشغيل الكاميرا..."}</Text></View></View><View style={styles.scanArea}><View style={styles.cornerTopRight} /><View style={styles.cornerTopLeft} /><View style={styles.cornerBottomRight} /><View style={styles.cornerBottomLeft} /><View style={styles.scanLine} /></View><Text style={styles.help}>{mode === "sale" ? "امسح باركود منتج واحد؛ ستغلق الكاميرا وتعود إلى السلة فورًا." : "سيظهر المنتج المسجل مباشرة بعد قراءة الرمز."}</Text></View></View>;
 }
 
 const corner = { position: "absolute" as const, width: 34, height: 34, borderColor: "#7CE2C2" };
-const styles = StyleSheet.create({ container: { flex: 1, backgroundColor: "#0B1713" }, overlay: { flex: 1, paddingTop: 64, paddingHorizontal: 24, backgroundColor: "rgba(4, 18, 12, 0.22)" }, top: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "flex-start" }, closeButton: { width: 45, height: 45, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.38)" }, title: { color: "#FFFFFF", fontSize: 22, lineHeight: 29, fontWeight: "800", textAlign: "right" }, subtitle: { color: "#E0F1EA", fontSize: 13, lineHeight: 19, textAlign: "right", maxWidth: 245 }, scanArea: { height: 220, marginTop: 115, marginHorizontal: 4, borderRadius: 24, backgroundColor: "rgba(0,0,0,0.15)" }, cornerTopRight: { ...corner, right: 0, top: 0, borderRightWidth: 4, borderTopWidth: 4, borderTopRightRadius: 22 }, cornerTopLeft: { ...corner, left: 0, top: 0, borderLeftWidth: 4, borderTopWidth: 4, borderTopLeftRadius: 22 }, cornerBottomRight: { ...corner, right: 0, bottom: 0, borderRightWidth: 4, borderBottomWidth: 4, borderBottomRightRadius: 22 }, cornerBottomLeft: { ...corner, left: 0, bottom: 0, borderLeftWidth: 4, borderBottomWidth: 4, borderBottomLeftRadius: 22 }, scanLine: { position: "absolute", left: 19, right: 19, top: "50%", height: 2, backgroundColor: "#7CE2C2", shadowColor: "#7CE2C2", shadowOpacity: 0.9, shadowRadius: 7 }, cartPill: { alignSelf: "center", marginTop: 18, borderRadius: 999, paddingHorizontal: 13, minHeight: 38, backgroundColor: "rgba(20,108,90,0.94)", flexDirection: "row-reverse", alignItems: "center", gap: 7 }, cartPillText: { color: "#FFFFFF", fontSize: 13, lineHeight: 19, fontWeight: "800" }, help: { color: "#FFFFFF", fontSize: 14, lineHeight: 21, textAlign: "center", marginTop: 26 }, fallback: { flex: 1, alignItems: "center", justifyContent: "center", gap: 13, paddingHorizontal: 35, backgroundColor: "#F7FAF8" }, fallbackText: { color: "#61726B", fontSize: 15 }, permissionTitle: { color: "#16201D", fontSize: 20, lineHeight: 28, fontWeight: "800" }, permissionText: { color: "#61726B", fontSize: 14, lineHeight: 21, textAlign: "center" }, permissionButton: { minHeight: 49, paddingHorizontal: 18, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: "#146C5A", marginTop: 6 }, permissionButtonText: { color: "#FFFFFF", fontSize: 15, lineHeight: 21, fontWeight: "800" }, cancelText: { color: "#146C5A", fontSize: 15, lineHeight: 21, fontWeight: "800", marginTop: 10 }, pressed: { opacity: 0.72 } });
+const styles = StyleSheet.create({ container: { flex: 1, backgroundColor: "#0B1713" }, overlay: { flex: 1, paddingTop: 64, paddingHorizontal: 24, backgroundColor: "rgba(4, 18, 12, 0.22)" }, top: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "flex-start" }, closeButton: { width: 45, height: 45, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.38)" }, title: { color: "#FFFFFF", fontSize: 22, lineHeight: 29, fontWeight: "800", textAlign: "right" }, subtitle: { color: "#E0F1EA", fontSize: 13, lineHeight: 19, textAlign: "right", maxWidth: 245 }, scanArea: { height: 220, marginTop: 115, marginHorizontal: 4, borderRadius: 24, backgroundColor: "rgba(0,0,0,0.15)" }, cornerTopRight: { ...corner, right: 0, top: 0, borderRightWidth: 4, borderTopWidth: 4, borderTopRightRadius: 22 }, cornerTopLeft: { ...corner, left: 0, top: 0, borderLeftWidth: 4, borderTopWidth: 4, borderTopLeftRadius: 22 }, cornerBottomRight: { ...corner, right: 0, bottom: 0, borderRightWidth: 4, borderBottomWidth: 4, borderBottomRightRadius: 22 }, cornerBottomLeft: { ...corner, left: 0, bottom: 0, borderLeftWidth: 4, borderBottomWidth: 4, borderBottomLeftRadius: 22 }, scanLine: { position: "absolute", left: 19, right: 19, top: "50%", height: 2, backgroundColor: "#7CE2C2", shadowColor: "#7CE2C2", shadowOpacity: 0.9, shadowRadius: 7 }, help: { color: "#FFFFFF", fontSize: 14, lineHeight: 21, textAlign: "center", marginTop: 26 }, fallback: { flex: 1, alignItems: "center", justifyContent: "center", gap: 13, paddingHorizontal: 35, backgroundColor: "#F7FAF8" }, fallbackText: { color: "#61726B", fontSize: 15 }, permissionTitle: { color: "#16201D", fontSize: 20, lineHeight: 28, fontWeight: "800" }, permissionText: { color: "#61726B", fontSize: 14, lineHeight: 21, textAlign: "center" }, permissionButton: { minHeight: 49, paddingHorizontal: 18, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: "#146C5A", marginTop: 6 }, permissionButtonText: { color: "#FFFFFF", fontSize: 15, lineHeight: 21, fontWeight: "800" }, cancelText: { color: "#146C5A", fontSize: 15, lineHeight: 21, fontWeight: "800", marginTop: 10 }, pressed: { opacity: 0.72 } });

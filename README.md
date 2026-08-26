@@ -1,7 +1,6 @@
-<img width="450" height="1000" alt="965c235e-1900-4586-a138-4319afbf181b" src="https://github.com/user-attachments/assets/72ca91e5-bf1a-4479-b598-f9e8f7b98f3f" />
-<img width="450" height="1000" alt="549b9164-1a53-46d7-959d-da5cabcb30f2" src="https://github.com/user-attachments/assets/df66d0e6-4eb5-42be-8076-6af432d6a8b1" />
-<img width="450" height="1000" alt="5d4b6de5-f907-4cc2-8908-a326eb9a8880" src="https://github.com/user-attachments/assets/25e0498a-300c-43b8-95a7-a7dfc00309fe" />
-
+<img width="450" height="1000" alt="لقطة تطبيق إدارة متجر" src="https://github.com/user-attachments/assets/72ca91e5-bf1a-4479-b598-f9e8f7b98f3f" />
+<img width="450" height="1000" alt="لقطة تطبيق إدارة متجر" src="https://github.com/user-attachments/assets/df66d0e6-4eb5-42be-8076-6af432d6a8b1" />
+<img width="450" height="1000" alt="لقطة تطبيق إدارة متجر" src="https://github.com/user-attachments/assets/25e0498a-300c-43b8-95a7-a7dfc00309fe" />
 
 # إدارة متجر
 
@@ -10,25 +9,18 @@
 ## المزايا
 
 - إدارة المنتجات: الاسم، الباركود، الصورة، التصنيف، أسعار الشراء والبيع، والكمية.
-
 - مسح الباركود من أقسام المنتجات والمخزون والبيع.
-
-- إضافة منتجات متتالية إلى سلة البيع مع إبقاء الكاميرا فعالة أثناء المسح.
-
+- مسح بيع أحادي: يقرأ باركود منتج واحد، يضيفه إلى السلة مرة واحدة، ثم يغلق الكاميرا تلقائيًا.
 - سلة بيع تتسع حتى 150 صنفًا مختلفًا، مع تعديل الكمية عبر الأزرار أو الإدخال اليدوي.
-
 - خصم الكمية من المخزون عند إتمام البيع.
-
 - تنبيهات المنتجات المنخفضة أو النافدة.
-
 - نسخ احتياطي واستعادة للبيانات المحلية.
-
 - واجهة عربية باتجاه من اليمين إلى اليسار ودعم الوضع الداكن.
 
 ## التقنية المستخدمة
 
 | المجال | التقنية |
-| --- | --- |
+|---|---|
 | التطبيق | Expo وReact Native وTypeScript |
 | التنقل | Expo Router |
 | البيانات المحلية | Expo SQLite |
@@ -40,9 +32,7 @@
 ### المتطلبات
 
 - Node.js 22 أو أحدث.
-
 - pnpm.
-
 - Android Studio مع Android SDK، أو هاتف أندرويد للاختبار.
 
 ### الخطوات
@@ -54,6 +44,7 @@ corepack enable
 pnpm install
 pnpm android
 ```
+
 لاختبار واجهة الويب فقط، استخدم:
 
 ```bash
@@ -72,21 +63,22 @@ cd android
 
 ستجد نسخة الاختبار في:
 
-```
+```text
 android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
-لإنشاء إصدار Release موقّع وجاهز للتوزيع، اضبط مفتاح التوقيع في Android Studio أو استخدم Expo Application Services (EAS ).
+لإنشاء إصدار Release موقّع وجاهز للتوزيع، اضبط مفتاح التوقيع في Android Studio أو استخدم Expo Application Services (EAS).
 
 ## المساهمة
 
 نرحب باقتراحات التحسين وتقارير الأخطاء. افتح Issue يصف المشكلة وخطوات تكرارها، أو أنشئ فرعًا جديدًا ثم Pull Request واضحًا يشرح التغيير.
 
-## الدعم
+## الدعم والشراء
 
 إذا ساعدك التطبيق، يمكنك دعم استمرارية تطويره عبر صفحة GitHub Sponsors أو عبر رابط دعم موثوق يظهر في زر Sponsor بالمستودع عند إعداد ملف `.github/FUNDING.yml`.
-ممكن مساعدتنا في شراء التطبيق من هنا  
-https://aseerstore.sell.app/product/mahal-stock
+
+يمكنك دعم المشروع أو شراء التطبيق من هنا: https://aseerstore.sell.app/product/mahal-stock
+
 ## الترخيص
 
 لم يُحدد الترخيص بعد. قبل فتح المشروع للمساهمات أو إعادة الاستخدام، اختر ترخيصًا مناسبًا مثل MIT أو GPL-3.0 وفق نموذجك التجاري وتفضيلاتك.
